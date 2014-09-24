@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="gimbal-proximity">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/mobile/libs/gimbal-proximity.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

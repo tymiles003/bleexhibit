@@ -80,8 +80,12 @@
     </content>
     <orderEntry type="jdk" jdkName="Android API 20 Platform" jdkType="Android SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" exported="" name="spring-android-rest-template-1.0.1.RELEASE" level="project" />
+    <orderEntry type="library" exported="" name="android-dev-logging" level="project" />
     <orderEntry type="library" exported="" name="support-v4-19.1.0" level="project" />
+    <orderEntry type="library" exported="" name="spring-android-core-1.0.1.RELEASE" level="project" />
     <orderEntry type="library" exported="" name="play-services-5.2.08" level="project" />
+    <orderEntry type="library" exported="" name="gimbal-proximity" level="project" />
   </component>
 </module>
 
