@@ -3,3 +3,5 @@
 /.idea/workspace.xml
 .DS_Store
 /build
+/mobile/src/main/res/values/strings-private.xml
+mobile/src/main/res/values/strings-private.xml
