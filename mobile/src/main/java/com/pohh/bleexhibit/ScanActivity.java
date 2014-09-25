@@ -18,6 +18,7 @@ import com.gimbal.proximity.Proximity;
 import com.gimbal.proximity.ProximityError;
 import com.gimbal.proximity.ProximityFactory;
 import com.gimbal.proximity.ProximityListener;
+import com.gimbal.proximity.ProximityOptions;
 import com.gimbal.proximity.Transmitter;
 import com.gimbal.proximity.Visit;
 import com.gimbal.proximity.VisitListener;
@@ -30,6 +31,7 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 
 	public static final int REQUEST_ENABLE_BT = 1;
 	public static final int RSSI_THRESHOLD = -50;
+	public static final int APP_SHOPPING_CATEGORY_VIEWPAGER_PAGE = 1;
 
 	private TextView rssiView;
 	private TextView idView;
@@ -47,6 +49,8 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 		rssiView = (TextView)findViewById(R.id.beacon_rssi);
 		idView = (TextView)findViewById(R.id.beacon_identifier);
 		proximityToggleView = (ToggleButton)findViewById(R.id.proximity_toggle);
+
+		setProximityEnabled(false);
 
 		Proximity.initialize(this, getString(R.string.gimbal_app_id), getString(R.string.gimbal_app_secret));
 		Proximity.startService(this);
@@ -74,12 +78,7 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 	@Override
 	public void serviceStarted() {
 		Log.d("POH", "ScanActivity::serviceStarted()::enter");
-		if (visitMgr == null) {
-			visitMgr = ProximityFactory.getInstance().createVisitManager();
-		}
-		visitMgr.setVisitListener(this);
-		visitMgr.start();
-		proximityToggleView.setChecked(true);
+		setProximityEnabled(true);
 		Log.d("POH", "ScanActivity::serviceStarted()::exit");
 	}
 
@@ -108,7 +107,7 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 		}
 		else
 		{
-			proximityToggleView.setChecked(false);
+			setProximityEnabled(false);
 		}
 	}
 
@@ -129,8 +128,8 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 			Log.d("POH", String.format("ScanActivity::logVisit::%s=%s", "       dwell time", visit.getDwellTime()));
 			Log.d("POH", String.format("ScanActivity::logVisit::%s=%s", "last updated time", visit.getLastUpdateTime().toString()));
 			Log.d("POH", String.format("ScanActivity::logVisit::%s=%s", "       start time", visit.getStartTime().toString()));
+			logTransmitter(visit.getTransmitter());
 		}
-		logTransmitter(visit.getTransmitter());
 
 		Log.d("POH", "ScanActivity::logVisit()::exit");
 	}
@@ -140,7 +139,7 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 
 		if (transmitter != null)
 		{
-			setQueryTerm(transmitter);
+			setQueryTerm(transmitter.getName());
 			Log.d("POH", String.format("ScanActivity::logTransmitter::%s=%s", "identifier", transmitter.getIdentifier()));
 			Log.d("POH", String.format("ScanActivity::logTransmitter::%s=%s", "      name", transmitter.getName()));
 			Log.d("POH", String.format("ScanActivity::logTransmitter::%s=%s", "  owner id", transmitter.getOwnerId()));
@@ -149,8 +148,8 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 		Log.d("POH", "ScanActivity::logTransmitter()::exit");
 	}
 
-	private void setQueryTerm(Transmitter transmitter) {
-		queryTerm = transmitter.getName();
+	private void setQueryTerm(String queryTerm) {
+		this.queryTerm = queryTerm;
 		idView.setText(queryTerm);
 	}
 
@@ -164,23 +163,82 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 		logVisit(visit);
 		if (integer > RSSI_THRESHOLD)
 		{
-			searchZoo();
+			searchZoo(queryTerm);
 		}
 		Log.d("POH", "ScanActivity::receivedSighting()::exit");
 	}
 
-	private void searchZoo() {
-		if (TextUtils.isEmpty(queryTerm))
+	private void searchZoo(String query) {
+		if (TextUtils.isEmpty(query))
 		{
 			return;
 		}
-		visitMgr.stop();
-		proximityToggleView.setChecked(false);
+		setProximityEnabled(false);
 		Intent searchIntent = new Intent(Intent.ACTION_WEB_SEARCH);
-		searchIntent.putExtra(SearchManager.QUERY, queryTerm);
-		searchIntent.putExtra(SearchManager.EXTRA_DATA_KEY, "web");
+		searchIntent.setFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
+		searchIntent.putExtra(SearchManager.QUERY, query);
+		searchIntent.putExtra(SearchManager.EXTRA_DATA_KEY, APP_SHOPPING_CATEGORY_VIEWPAGER_PAGE);
 		startActivity(searchIntent);
 		finish();
+	}
+
+	private void setProximityEnabled(boolean isEnabled)
+	{
+		if(isEnabled)
+		{
+			startVisitMgr();
+		}
+		else
+		{
+			stopVisitMgr();
+		}
+		proximityToggleView.setChecked(isEnabled);
+	}
+
+	private void stopVisitMgr() {
+		Log.d("POH", "ScanActivity::stopVisitMgr()::enter");
+		if (visitMgr != null)
+		{
+			visitMgr.setVisitListener(new VisitListener() {
+				@Override
+				public void didArrive(Visit visit) {
+
+				}
+
+				@Override
+				public void receivedSighting(Visit visit, Date date, Integer integer) {
+
+				}
+
+				@Override
+				public void didDepart(Visit visit) {
+
+				}
+			});
+			// TODO: this causes a crash
+			//visitMgr.stop();
+		}
+		setQueryTerm("");
+		Log.d("POH", "ScanActivity::stopVisitMgr()::exit");
+	}
+
+	private void startVisitMgr()
+	{
+		Log.d("POH", "ScanActivity::startVisitMgr()::enter");
+		if (visitMgr == null)
+		{
+			visitMgr = ProximityFactory.getInstance().createVisitManager();
+		}
+//		ProximityOptions options = new ProximityOptions();
+//		options.setOption(ProximityOptions.VisitOptionArrivalRSSIKey, RSSI_THRESHOLD);
+//		options.setOption(ProximityOptions.VisitOptionDepartureRSSIKey, RSSI_THRESHOLD);
+//		options.setOption(ProximityOptions.VisitOptionBackgroundDepartureIntervalInSecondsKey, 5);
+//		options.setOption(ProximityOptions.VisitOptionForegroundDepartureIntervalInSecondsKey, 5);
+//		options.setOption(ProximityOptions.VisitOptionSignalStrengthWindowKey, ProximityOptions.VisitOptionSignalStrengthWindowSmall);
+//		visitMgr.startWithOptions(options);
+		visitMgr.setVisitListener(this);
+		visitMgr.start();
+		Log.d("POH", "ScanActivity::startVisitMgr()::exit");
 	}
 
 	@Override
@@ -193,7 +251,7 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 	}
 
 	public void searchZoo(View view) {
-		searchZoo();
+		searchZoo(queryTerm);
 	}
 
 	public void toggleProximityService(View view) {
@@ -202,13 +260,6 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 			return;
 		}
 		ToggleButton btn = (ToggleButton)view;
-		if (btn.isChecked())
-		{
-			visitMgr.start();
-		}
-		else
-		{
-			visitMgr.stop();
-		}
+		setProximityEnabled(btn.isChecked());
 	}
 }
