@@ -32,6 +32,7 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 	public static final int REQUEST_ENABLE_BT = 1;
 	public static final int RSSI_THRESHOLD = -50;
 	public static final int APP_SHOPPING_CATEGORY_VIEWPAGER_PAGE = 1;
+	private static final long RSSI_TIMEOUT_THRESHOLD = 5 * 1000;
 
 	private TextView rssiView;
 	private TextView idView;
@@ -41,6 +42,8 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 
 	VisitManager visitMgr;
 
+	private int lastRssi = Integer.MIN_VALUE;
+	private long lastRssiTimestamp = 0;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -139,7 +142,6 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 
 		if (transmitter != null)
 		{
-			setQueryTerm(transmitter.getName());
 			Log.d("POH", String.format("ScanActivity::logTransmitter::%s=%s", "identifier", transmitter.getIdentifier()));
 			Log.d("POH", String.format("ScanActivity::logTransmitter::%s=%s", "      name", transmitter.getName()));
 			Log.d("POH", String.format("ScanActivity::logTransmitter::%s=%s", "  owner id", transmitter.getOwnerId()));
@@ -161,11 +163,45 @@ public class ScanActivity extends Activity implements ProximityListener, VisitLi
 		Log.d("POH", String.format("ScanActivity::receivedSighting::%s=%s", "   date", date.toString()));
 		Log.d("POH", String.format("ScanActivity::receivedSighting::%s=%s", "integer", integer));
 		logVisit(visit);
-		if (integer > RSSI_THRESHOLD)
+		updateRSSI(integer);
+		setQueryTermIfAcceptableRSSI(visit);
+		attemptSearch();
+		Log.d("POH", "ScanActivity::receivedSighting()::exit");
+	}
+
+	private void attemptSearch() {
+		if (lastRssi > RSSI_THRESHOLD)
 		{
 			searchZoo(queryTerm);
 		}
-		Log.d("POH", "ScanActivity::receivedSighting()::exit");
+	}
+
+	private void setQueryTermIfAcceptableRSSI(Visit visit) {
+		if (visit == null || visit.getTransmitter() == null)
+		{
+			return;
+		}
+		if (lastRssi != Integer.MIN_VALUE)
+		{
+			setQueryTerm(visit.getTransmitter().getName());
+		}
+	}
+
+	private void updateRSSI(Integer integer) {
+		long timeSinceLastRssi = System.currentTimeMillis() - lastRssiTimestamp;
+		if (timeSinceLastRssi > RSSI_TIMEOUT_THRESHOLD)
+		{
+			setLastRssi(Integer.MIN_VALUE);
+		}
+		if (integer > lastRssi)
+		{
+			setLastRssi(integer);
+		}
+	}
+
+	private void setLastRssi(Integer integer) {
+		lastRssi = integer;
+		lastRssiTimestamp = System.currentTimeMillis();
 	}
 
 	private void searchZoo(String query) {
